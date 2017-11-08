@@ -1,0 +1,184 @@
+---
+title: "Association Rules for Cosmetics dataset"
+author: "Mahesh Jadhav-71620036"
+date: "5 April 2017"
+output:
+  word_document: default
+  pdf_document: default
+  html_document: default
+---
+
+```{r Packages/libraries, message=FALSE, warning=FALSE}
+require("Matrix")||install.packages("Matrix")## if not already installed
+require("arules")||install.packages("arules") ## if not already installed
+require("arulesViz")||install.packages("arulesViz") ## if not already installed; necessary for visualization purpose
+library("arulesViz")
+library("Matrix")
+library("arules")
+library("xlsx")
+getwd()
+```
+1.a Please include (copy-paste) the output ??? first fifteen rules along with header and input parameter details ??? in your submission
+
+Reading the cosmetics dataset, which is given in matrix format. 
+
+```{r mydata}
+mydata<-read.xlsx("cosmetics.xlsx", sheetIndex = 2)
+head(mydata)
+
+```
+
+Applying apriori algorithm on the data with a threshold support of 0.12 and confidence of 0.75 we get 19 rules, which are sorted based on the lift ratio in descending order
+```{r rules}
+rules = apriori(as.matrix(mydata[,2:15]), parameter=list(support=0.12, 
+                                                         confidence=0.75,minlen=2)) ## the first column in mydata has transaction id
+inspect(sort(rules, by="lift"))
+
+
+```
+Top 15 rules based on lift score
+```{r Top 15 rules}
+TOP15_Rules <- head(sort(rules, by="lift"),15)
+#inspect(TOP15_Rules)
+#is.redundant(TOP15_Rules,measure = "lift" )
+ # find redundant rules
+ subset.matrix <- is.subset(TOP15_Rules, TOP15_Rules)
+ subset.matrix[lower.tri(subset.matrix, diag=T)] <- NA
+ redundant <- colSums(subset.matrix, na.rm=T) >= 1
+ #which(redundant)
+
+ # remove redundant rules
+ rules.pruned <- TOP15_Rules[!redundant]
+ #inspect(rules.pruned)
+#??is.redundant()
+```
+1b. What are the supports of the antecedent, the consequent, and the support of the rule itself for the first rule? Explain how they are calculated
+
+The first rule from above output is
+```{r first rule}
+inspect(TOP15_Rules[1])
+```
+In the first rule we see that Brushes is the antecedent and Nail.Polish is consequent, the first rule states purchase of brush leads to  purchase of Nail.Polish
+```{r count}
+#number of transaction involving nail.polish and brushes
+colSums(mydata[,4:5])
+
+```
+from the above output we observe that number of transaction involving Nail.Polish is 280 and
+number of transaction involving brushes is 149
+```{r transaction count}
+nrow(mydata)
+
+```
+From the above output we observe that Total no of transactions is 1000
+```{r}
+Brushes_NailPolish <- mydata$Brushes + mydata$Nail.Polish
+
+as.data.frame(table(Brushes_NailPolish))
+
+```
+From the above output we observe that in given dataset both brushes and nail polish are purchased together in 149 transactions
+
+From the dataset we see that the support of antecedent(Brushes) is 
+            = number of transaction involving brushes/ Total no of transactions
+            = 149/1000 = 14.9%
+            
+From the dataset we see that the support of consequent(nail Polish) is
+            = number of transaction involving Nail.Polish / Total no of transactions
+            = 280/1000 = 28%
+            
+Support of Rule = Support of both Brushes and Nail.Polish together is 
+            = number of transactions where both Brushes and Nail polish were purchased/ Total no of transactions
+            = 149/1000 = 14.9%
+            
+            
+1.c What is the confidence of the first rule? Explain how it is calculated.
+
+In the first rule we see that Brushes is the antecedent and Nail.Polish is consequent.
+confidence of first rule is 100%
+confidence =  probability of both antecedent and consequent occuring together / probability of antecedent
+here antecedent is Brushes, probability of antecedent(Brushes) = 149/1000= 0.149
+probability of both antecedent(brushes) and consequent(nail.polish) occuring together = 149/1000 = 0.149
+hence confidence of rule =  0.149/0.149 = 1
+
+1d. What is the lift ratio of the first rule? Explain how it is calculated.
+In the first rule we see that Brushes is the antecedent and Nail.Polish is consequent.
+Lift Ratio of first rule is 3.571
+In benchmark confidence we assume that the occurence of consequent in a transaction is independent of the occurence of antecedent
+BenchMark confidence= (probability of both antecedent and consequent occuring together) / (probability of antecedent)
+
+since occurence of consequent in a transaction is independent of the occurence of antecedent
+
+probability of both antecedent and consequent occuring together = P(antecedent) * P(consequent)
+
+BenchMark confidence = (P(antecedent) * P(consequent))/(probability of antecedent)
+                    
+                    = P(Consequent)
+                    
+Lift Ratio = confidence/Benchmark confidence
+
+In the above(1c) answer, we have calcualted confidence. The confidence for the first rule = 1
+
+BenchMark confidence = Probability of consequent 
+                     = number of transaction involving Nail.Polish / Total no of transactions
+                    = 280/1000 = 0.28
+                    
+  Therefore Lift Ratio = 1/0.28 = 3.571
+  
+1.e Reviewing the first fifteen rules, comment on their redundancy (read as constructed from same item set/tuple).
+How many unique rules did you find from the first 15 rules?
+```{r rules15}
+inspect(TOP15_Rules)
+```
+
+  
+From the above top 15 rules we observe that there is redundancy in the rules (rules consisting same itemset ) 
+
+Rule 12 and Rule 14 are similar
+Rule 11 and Rule 15 are similar
+Rule 2 and Rule 5 are similar
+Rule 4 and Rule 6 are similar
+Rule 7 and Rule 8 are similar
+Rule 3 and Rule 10 are similar
+
+Total 6 rules are redundant , the support for the above mentioned rule pairs is similar, however there is a marginal difference in lift ratio.based on domain expertise we can decide on omitting rules 5,6,8,10,14,15 as these have correspondingly lower lift ratio
+
+1f.Interpret the first three distinct (i.e., excluding the redundant ones, if any, as defined above) rules, in the output, in words.
+The top 3 rules(based on lift ratio value) after omitting redundancies( from above 1e output)  are :
+
+  lhs                        rhs           support confidence lift    
+[1]  {Brushes}               => {Nail.Polish} 0.149   1.0000000  3.571429
+[2]  {Blush,Eye.shadow}      => {Mascara}     0.169   0.9285714  2.601040
+[3]  {Concealer,Eye.shadow}  => {Mascara}     0.179   0.8905473  2.494530
+
+The first rule (Brushes,Nail.Polish) is having very high lift ratio  (3.571429) ,showing a strong association between Brushes and nail polish. 
+The confidence value of 1 i.e., 100% suggests that there is a 100% likelihood of purchasing a nail polish whenever a brush is purchased by a customer.
+The support value is 0.149 suggests that brushes and nail.polish are purchased together in 149 transactions out of 1000 transactions. 
+All this put together a very strong association between brushes and nail.polish
+
+The second rule ({Blush,Eye.shadow},{Mascara})  is having a lift value of 2.601040
+The confidence value of 0.928 i.e. 92.8% suggests that there is a 92.8% likelihood of purchasing a mascara whenever a blush and eyeshadow are purchased by a customer.
+The support value is 0.169 suggests that ({Blush,Eye.shadow},{Mascara}) are purchased together in 169 transactions out of 1000 transactions. 
+Overall this suggests a strong association between ({Blush,Eye.shadow},{Mascara}) 
+
+
+The third rule {Concealer,Eye.shadow}  => {Mascara}is having a lift value of 2.494530
+The confidence value of 0.89 i.e., 89% suggests that there is a 89% likelihood of purchasing a mascara whenever a concealer and eyeshadow are purchased by a customer.
+The support value is 0.179 suggests that ({concealer,Eye.shadow},{Mascara}) are purchased together in 179 transactions out of 1000 transactions. 
+Overall this suggests a strong association between ({Blush,Eye.shadow},{Mascara}) 
+
+
+
+1g. g) Based on the distinct rules that you identified in Part (f), suggest some action that will benefit the business owner.
+
+if we closely inspect( Top 3 distinct Rules) we may think of bundling  Rules 2 and 3  together but such rule({Blush, concealer, eyeshadow},{Mascara}) does not come out as part of our rules as this combination does not satisfy the inital support level set by us.
+
+From the rules 2 and 3 it can inferred that customers buying Eye Shadow can opt for multiple items to go along with it like blush, concealer, mascara whereas brush has only  one item as its consequent.
+
+Based on this information and the financial/store space feasibility the store owner can try to make various products bundles(as suggested below) having eyeshadow as part of it thus cross selling the products. 
+
+Possible bundles could be
+Eyeshadow, Concealer ,Mascara
+Eyeshadow, Blush ,Mascara
+Eyeshadow, Mascara
+Eyeshadow, Blush ,Concealer,Mascara

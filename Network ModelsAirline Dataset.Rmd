@@ -1,0 +1,208 @@
+---
+title: "Airlines Network"
+author: "Mahesh Jadhav-Student Id 71620036-CBA Batch 7"
+date: "5 April 2017"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r packages and  libraries, message=FALSE, warning=FALSE}
+require("igraph")||install.packages("igraph") 
+
+library("igraph")
+```
+
+Reading input files
+
+```{r Reading input files}
+#reading airports.dat file  source: http://openflights.org/data.html
+
+airports <- read.csv("airports.dat", header=FALSE) 
+colnames(airports) <- c("Airport ID","Name","City",
+                        "Country","IATA_FAA","ICAO","Latitude","Longitude",
+                        "Altitude","Timezone","DST","Tz database timezone")
+head(airports)
+#reading routes.dat file 
+airline_routes <- read.csv("routes.dat", header=FALSE) 
+colnames(airline_routes) <- c("Airline", "Airline ID", "Source Airport",
+                              "Source Airport ID","Destination Airport",
+                              "Destination  Airport ID","Codeshare","Stops","Equipment")
+head(airline_routes)
+```
+
+Create a directed network graph of airline routes using routes.dat
+
+```{r Step2}
+AirlineNW <- graph.edgelist(as.matrix(airline_routes[,c(3,5)]), directed=TRUE)
+AirlineNW
+plot(AirlineNW)
+```
+
+Create community-based clusters
+
+```{r Step3}
+# leading.eigenvector.community works for undirected graph
+UndirectedAirlineNW <- graph.edgelist(as.matrix(airline_routes[,c(3,5)]),directed=FALSE)
+A <- leading.eigenvector.community(UndirectedAirlineNW)
+as.data.frame(table(membership(A)))
+plot(A,UndirectedAirlineNW) 
+```
+
+Above plot displays the communities in dataset
+
+4a. What would you call a community in a social-media network?
+
+A community in a social media network, is a group of individuals having common interests/thoughts/goals.For example people staying in same society may form community to discuss regarding the events/issues in society
+people preparing for exam like GMAT may form community to discuss on exam topics 
+The communities are formed based on the social interests, technical interests, professional interests of people.
+eg: facebook groups, whatsapp groups, google groups, linkedin groups etc.,
+
+4b. Extend the definition of community (as you suggested above in Part a) to the community of airports
+
+Airports can be broadly categorized into below communities.
+In USA The law categorizes airports by type of activities, including commercial service, primary, cargo service, reliever, and general aviation airports, as shown below:
+1.	Cargo Service Airports
+2.  Commercial/Non-Commercial airports
+3.  General Aviation Airports
+4.  Reliever Airports 
+
+
+	Commerical or Non-Commercial Airports
+Commercial service airports are those airports having regularly scheduled commercial airline traffic and are subcategorized into primary, non-primary(secondary) airports.  Primary airports: Airports which handle more than 10,000 passengers each year. Non-primary(Secondary) airports which handle between 2,500 and 10,000 passengers. 
+
+Primary airports(international/Domestic airports) are further subcategorized as stated below
+
+Nonhub primary - airports handling over 10,000 but less than 0.05% of the country's annual passenger boardings
+Small hub primary - airports with 0.05 to 0.25% of the country's annual passenger boardings
+Medium hub primary - airports handling 0.25 to 1% of the country's annual passenger boardings
+Large hub primary - airports handling over 1% of the country's annual passenger boardings
+
+Cargo Service Airports are airports that, in addition to any other air transportation services that may be available, are served by aircraft providing air transportation of only cargo with a total annual landed weight of more than 100 million pounds. "Landed weight" means the weight of aircraft transporting only cargo in intrastate, interstate, and foreign air transportation. An airport may be both a commercial service and a cargo service airport.
+
+General aviation airports: Contains very few aircrafts based out from this airport.Most aircrafts are small and are operated by individuals or other private entities, and little or no commercial airline traffic occurs. 
+
+Reliever airports are essentially large general-aviation airports located in metropolitan areas that serve to offload small aircraft traffic from hub airports in the region. 
+
+(Source : https://en.wikipedia.org/wiki/FAA_airport_categories
+https://www.faa.gov/airports/planning_capacity/passenger_allcargo_stats/categories/)
+
+4c.How many distinct airports are there in the dataset?How many communities of airports got identified ? How many communities of airports got identified ? List the number of airports in each cluster/community in a table.
+
+
+
+```{r Distinct airports}
+#Total no of Distinct airports
+length(unique(A$names))
+```
+Total no of Distinct airports is 3425
+```{r communities}
+#number of communities
+length(A)
+```
+Total number of communities identified are 25
+```{r count of airports per community}
+apcc <- table((membership(A)))
+as.data.frame(apcc)
+```
+From the above ouput we see that community 11 has the highest number of airports(776) opertaing from it, followed by community 20(which has total 656), followed by community 9(which has total 635 airports)
+
+
+Step 5:
+Compute the centralities (in-degree, out-degree, in-closeness, eigenvector, betweenness) of each airport
+```{r indegree centrality}
+indegree <- degree(AirlineNW,mode="in")
+as.data.frame(head(indegree))
+
+```
+
+```{r outdegree centrality}
+outdegree <- degree(AirlineNW,mode="out")
+as.data.frame(head(outdegree))
+```
+
+```{r in-closeness centraility}
+closeness_in <- closeness(AirlineNW, mode="in",normalized = TRUE)
+as.data.frame(head(closeness_in))
+```
+```{r betweenness}
+btwn <- betweenness(AirlineNW,normalized = TRUE)
+as.data.frame(head(btwn))
+```
+
+
+```{r eigenvector centrality}
+eigen <- eigen_centrality(AirlineNW)
+
+as.data.frame(head(eigen$vector))
+
+```
+
+```{r All Centralities }
+# All centralities together
+centralities <- cbind(indegree, outdegree, closeness_in, btwn,eigen$vector)
+colnames(centralities) <- c("inDegree","outDegree","closenessIn","betweenness","Eigen centrality")
+head(centralities)
+
+```
+Run k-Means clustering to group the airports based on their centralities alone. Take k as the number of communities you obtained in Step4 part c
+```{r k-means clustering}
+normalized_data <- scale(centralities)
+#normalized_data
+fit <- kmeans(normalized_data,25,iter.max=15L)
+
+df <- as.data.frame(fit$size)
+rownames(df) <- c(1:25)
+df
+
+```
+
+The groups obtained in Step 5 are different from what I obtained in Step 4.
+ K-means clustering algorithm is a typical partitional clustering. Given the number of clusters (say k), the procedure of K-means clustering is as follows:
+ (i) Randomly generate k points as cluster centers and assign each point to the nearest       cluster center. 
+ (ii) Recompute the new cluster centers.
+ (iii) Repeat the two previous steps until some convergence criterion is met. 
+ 
+ The main advantages of the K-means algorithm are its simplicity and speed which allows it to run on large datasets. However, it does not yield the same result with each run, since the resulting clusters depend on the initial random assignments. And the number of clusters has to be predefined.
+ (Source: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3825126/)
+ 
+ Unlike this the leading eigen vector community approach is based on maximising the modularity.As part of this clustering approach first we construct the modularity matrix for our network and find its leading (most positive) eigenvalue and eigenvector. We divide
+the network into two parts according to the signs of the elements of this vector, and then repeat for each of the parts. If at any stage we find that the proposed split makes a zero or negative contribution to the total modularity, we leave the corresponding subgraph undivided.When the entire network has been decomposed into indivisible subgraphs in this way, the algorithm ends.(source : https://arxiv.org/pdf/physics/0602124.pdf)
+
+As we see both (k-means and leading eigenvector) techniques adopt different approach in forming the communities . k-means looks for similarity(basesd on centrality parameters int his case) whereas leading eigenvector technique looks for maximising the modularity.
+Step 6:
+writing the centralities dataframe to a csv file to further analyse to suggest new routes possible to increase profits
+```{r centralities a}
+write.csv(centralities,'centralities.csv')
+         
+```
+
+Identify a few (3-4) airports that you already know of to some extent in terms of their characteristics. Explain how centralities of those airports relative to that of the other airports in the network are in line with the characteristics you alreadyknow of about those airports
+
+ Unlike JFK(New york) airport which i expected to top the centralities table , On analysing the data I found that the Hartsfield-Jackson Aiport(Atlanta) tops the list in terms of all centrailites and turns out that it is the busiest airport. One of the reasons for it is that Hartsfield-Jackson is  the only airport located in Atlanta and by far the biggest airport in Georgia. Most other major hub cities, such as New York, split traffic between two or more major airports.
+ Close home, in India the airports are having the below centralities
+ 
+ 
+ From the centralities we can see that Delhi has the highest indegree, outdegree, betweenness. 
+ In terms of betweenness the TOP 5 airports in India are
+Delhi
+Mumbai
+Kolkatta
+Bangalore
+Chennai
+which again is as expected as  these are metropoliton cities and are big corporate hubs and are expected to have  good connectivity to other airports within country and also international connectivity. Also a place like shimla having low centrality value is as per expectation as it  is a hill station where demand is mostly dominated by tourists and is seasonal hence it has low traffic as expected.
+
+(f) If your organization is planning on launching a new flight service on a couple of new routes, what will that be (based on the information you have in THIS dataset)? Explain your answer. What other information will help you being more comfortable in  your decision.
+
+If we are to launch a new flight service in a new  route, we have to consider so many factors like the demand for the route, the cost feasibility of operating this route and also choose that route where there is no flight between two aiports.
+From the given data we can use the  betweenness centrality to decide on operating a new flight service.
+Assuming we have good demand from Chennai to shimla, we can launch a new flight service between chennai to shimla via Mumbai( which has high betweenness).
+
+Another flight route could be from Chennai to leh via Delhi( which has high betweenness)
+
+ 
+
+
+ 
+
+ 
